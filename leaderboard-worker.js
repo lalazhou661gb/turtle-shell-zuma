@@ -58,16 +58,18 @@ export default {
       const id = typeof body.id === 'string' ? body.id.slice(0, 64) : '';
       const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim().slice(0, 24) : '無名龜';
       const score = Number(body.score);
+      const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 10) : '';
       if (!id || !Number.isFinite(score)) return json({ error: 'invalid payload' }, 400);
 
       const board = await readBoard(env);
       const idx = board.findIndex((e) => e.id === id);
       if (idx === -1) {
-        board.push({ id, name, score, updatedAt: Date.now() });
+        board.push({ id, name, score, comment, updatedAt: Date.now() });
       } else if (score > board[idx].score) {
-        board[idx] = { id, name, score, updatedAt: Date.now() };
+        board[idx] = { id, name, score, comment, updatedAt: Date.now() };
       } else {
         board[idx].name = name;
+        if (comment) board[idx].comment = comment;
       }
       board.sort((a, b) => b.score - a.score);
       const trimmed = board.slice(0, MAX_ENTRIES);
