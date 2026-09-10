@@ -40,7 +40,9 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/leaderboard') {
       const board = await readBoard(env);
-      const top = board.slice().sort((a, b) => b.score - a.score).slice(0, 5);
+      const limitParam = parseInt(url.searchParams.get('limit') || '5', 10);
+      const limit = Number.isFinite(limitParam) ? Math.min(50, Math.max(1, limitParam)) : 5;
+      const top = board.slice().sort((a, b) => b.score - a.score).slice(0, limit);
       return json({ top });
     }
 

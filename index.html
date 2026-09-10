@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>龜殼祖瑪</title>
 </head>
 <body>
@@ -152,6 +152,14 @@
   .zw-btn-ghost{background:#eef3ee;color:var(--pond-text-soft);box-shadow:none;}
   .zw-btn-ghost:hover{background:#e4ebe4;box-shadow:none;}
   .zw-record-status{min-height:18px;font-size:13px;color:var(--pond-leaf);font-weight:700;margin:0 0 12px;}
+  .zw-lb-more-btn{display:block;width:100%;margin-top:10px;padding:8px;border:none;border-radius:12px;background:transparent;color:var(--pond-leaf);font-family:"Baloo 2","PingFang TC",sans-serif;font-weight:700;font-size:13px;cursor:pointer;}
+  .zw-lb-more-btn:hover{text-decoration:underline;}
+  .zw-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(30,60,50,0.5);z-index:30;padding:20px;box-sizing:border-box;}
+  .zw-modal.show{display:flex;}
+  .zw-modal-panel{background:var(--pond-card);border-radius:22px;padding:18px 20px;max-width:420px;width:100%;max-height:78vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);}
+  .zw-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .zw-modal-close{border:none;background:#eef3ee;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+  .zw-modal-close:hover{background:#e4ebe4;}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap">
 
@@ -262,6 +270,21 @@
       <p class="zw-lb-empty">尚無排行資料,快來搶頭香!</p>
     </div>
     <p class="zw-lb-note" id="zw-lb-note" hidden>排行榜暫時無法連線,先享受遊戲吧!</p>
+    <button class="zw-lb-more-btn" id="zw-lb-open-btn">查看完整排行榜</button>
+  </div>
+</div>
+
+<div class="zw-modal" id="zw-lb-modal">
+  <div class="zw-modal-panel">
+    <div class="zw-modal-head">
+      <p class="zw-lb-title" style="margin:0;">完整排行榜</p>
+      <button class="zw-modal-close" id="zw-lb-close-btn" aria-label="關閉">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#4a7c66" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="zw-lb-list" id="zw-lb-full-list">
+      <p class="zw-lb-empty">載入中...</p>
+    </div>
   </div>
 </div>
 
@@ -270,13 +293,19 @@
   function fitScale(){
     var wrap = document.getElementById('zw-scale-wrap');
     var card = document.getElementById('zw-root');
-    var available = Math.min(window.innerWidth - 32, 680);
-    var scale = Math.min(1, available / 680);
+    var header = document.querySelector('.zw-header');
+    var availW = Math.min(window.innerWidth - 32, 680);
+    var headerH = header ? header.getBoundingClientRect().height : 0;
+    var availH = window.innerHeight - headerH - 56;
+    var scaleW = availW / 680;
+    var scaleH = Math.max(0.42, availH / 780);
+    var scale = Math.min(1, scaleW, scaleH);
     card.style.transform = 'scale(' + scale + ')';
     wrap.style.height = (780 * scale) + 'px';
   }
   window.addEventListener('resize', fitScale);
   fitScale();
+  setTimeout(fitScale, 200);
 
   var HS_KEY = 'zw-turtle-zuma-highscore';
   function readLocalBest(){
@@ -493,8 +522,9 @@
     if (name && !nameInput.value) nameInput.value = name;
   }
 
-  function renderLeaderboard(entries) {
-    const list = document.getElementById('zw-lb-list');
+  function renderEntriesInto(listId, entries) {
+    const list = document.getElementById(listId);
+    if (!list) return;
     if (!entries.length) { list.innerHTML = '<p class="zw-lb-empty">尚無排行資料,快來搶頭香!</p>'; return; }
     list.innerHTML = entries.map(function (e, i) {
       const name = escapeHtml(String(e.name || '無名龜').slice(0, 12));
@@ -503,6 +533,31 @@
       const mine = e.id === playerId ? ' me' : '';
       return '<div class="zw-lb-row' + mine + '"><span class="zw-lb-rank">' + (i + 1) + '</span><span class="zw-lb-name">' + name + comment + '</span><span class="zw-lb-score">' + score + '</span></div>';
     }).join('');
+  }
+  function renderLeaderboard(entries) {
+    renderEntriesInto('zw-lb-list', entries);
+  }
+
+  async function fetchFullLeaderboard() {
+    renderEntriesInto('zw-lb-full-list', []);
+    document.getElementById('zw-lb-full-list').innerHTML = '<p class="zw-lb-empty">載入中...</p>';
+    try {
+      if (backend === 'claude-db' && lbCollection) {
+        const snap = await lbCollection.orderBy('score', 'desc').limit(30).get();
+        renderEntriesInto('zw-lb-full-list', snap.docs.map(function (d) {
+          const data = d.data() || {};
+          return { id: d.id, name: data.name, score: data.score, comment: data.comment };
+        }));
+      } else if (backend === 'cloudflare' && LEADERBOARD_API) {
+        const res = await fetch(LEADERBOARD_API + '/leaderboard?limit=30');
+        const data = res.ok ? await res.json() : { top: [] };
+        renderEntriesInto('zw-lb-full-list', data.top || []);
+      } else {
+        document.getElementById('zw-lb-full-list').innerHTML = '<p class="zw-lb-empty">排行榜暫時無法連線。</p>';
+      }
+    } catch (e) {
+      document.getElementById('zw-lb-full-list').innerHTML = '<p class="zw-lb-empty">排行榜暫時無法連線。</p>';
+    }
   }
 
   function showLbNote() {
@@ -878,6 +933,16 @@
   document.getElementById('zw-lose-btn').addEventListener('click', initGame);
   document.getElementById('zw-pause-btn').addEventListener('click', togglePause);
   document.getElementById('zw-resume-btn').addEventListener('click', togglePause);
+  document.getElementById('zw-lb-open-btn').addEventListener('click', () => {
+    document.getElementById('zw-lb-modal').classList.add('show');
+    fetchFullLeaderboard();
+  });
+  document.getElementById('zw-lb-close-btn').addEventListener('click', () => {
+    document.getElementById('zw-lb-modal').classList.remove('show');
+  });
+  document.getElementById('zw-lb-modal').addEventListener('click', e => {
+    if (e.target.id === 'zw-lb-modal') document.getElementById('zw-lb-modal').classList.remove('show');
+  });
 
   ['win', 'lose'].forEach(prefix => {
     document.getElementById('zw-' + prefix + '-save-btn').addEventListener('click', () => {
