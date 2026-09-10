@@ -107,8 +107,8 @@
   a:hover{ color:var(--pond-deep); }
   .zw-hud{display:flex;align-items:center;justify-content:space-between;height:52px;flex-shrink:0;padding:0 4px;}
   .zw-title{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:800;color:var(--pond-deep);letter-spacing:1px;}
-  .zw-badges{display:flex;gap:10px;font-family:"Baloo 2","PingFang TC",sans-serif;}
-  .zw-badge{background:rgba(255,255,255,0.8);border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700;color:#4a7c66;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;}
+  .zw-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;font-family:"Baloo 2","PingFang TC",sans-serif;}
+  .zw-badge{background:rgba(255,255,255,0.8);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;color:#4a7c66;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
   .zw-badge b{color:var(--pond-coral);font-size:16px;}
   .zw-stage{position:relative;width:640px;height:640px;border-radius:22px;overflow:hidden;box-shadow:0 4px 18px rgba(60,110,90,0.18);flex-shrink:0;}
   canvas#zw-canvas{display:block;width:640px;height:640px;touch-action:none;cursor:crosshair;}
@@ -170,6 +170,7 @@
       <div class="zw-badge">分數 <b id="zw-score">0</b></div>
       <div class="zw-badge">最高 <b id="zw-highscore">0</b></div>
       <div class="zw-badge">剩餘 <b id="zw-remain">0</b></div>
+      <div class="zw-badge">法寶 <b id="zw-powerup-label">-</b></div>
     </div>
   </div>
   <div class="zw-stage">
@@ -177,7 +178,7 @@
     <div class="zw-overlay show" id="zw-start">
       <div class="zw-panel">
         <h2>準備好了嗎?</h2>
-        <p>拖曳畫面瞄準,放開即可發射龜殼!<br>湊齊 3 個同色龜殼即可消除,別讓隊伍抵達池心。</p>
+        <p>拖曳畫面瞄準,放開即可發射龜殼!<br>湊齊 3 個同色龜殼即可消除,別讓隊伍抵達池心。<br>閃亮外框的龜殼是本回合法寶,消除它會觸發特殊效果!</p>
         <div class="zw-name-row">
           <input class="zw-name-input" id="zw-name-input" type="text" maxlength="12" placeholder="幫你的小龜取個名字">
         </div>
@@ -261,7 +262,7 @@
   // Filled in after deploying worker/leaderboard-worker.js to Cloudflare Workers.
   // Used only as a fallback when this page is not running inside a Claude Artifact
   // (e.g. hosted on GitHub Pages), so friends outside claude.ai can share a leaderboard too.
-  const LEADERBOARD_API = '';
+  const LEADERBOARD_API = 'https://turtle-shell-zuma.you772128.workers.dev';
 
   const playerId = getPlayerId();
   let lbCollection = null;
@@ -279,9 +280,10 @@
   ctx.scale(DPR, DPR);
   canvas.addEventListener('dragstart', e => e.preventDefault());
 
-  const cx = 320, cy = 320, R_OUT = 286, R_IN = 54, TURNS = 2.25;
-  const BALL_R = 17, SPACING = BALL_R * 2 * 0.94;
-  const TOTAL_SHELLS = 42;
+  const cx = 320, cy = 320, R_OUT = 284, R_IN = 54, TURNS = 2.25;
+  const BALL_R = 21, SPACING = BALL_R * 2 * 0.94;
+  const TOTAL_SHELLS = 36;
+  const POWERUP_TYPES = ['slow', 'bomb'];
 
   const thetaMax = TURNS * Math.PI * 2;
   const steps = 900;
@@ -506,13 +508,25 @@
 
   function initGame() {
     state.chain = []; state.shots = []; state.particles = []; state.score = 0; state.status = 'playing';
+    state.slowTimer = 0;
+    state.powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
     hideOverlays();
     for (let i = 0; i < TOTAL_SHELLS; i++) {
-      state.chain.push({ color: COLORS[Math.floor(Math.random() * COLORS.length)], traveled: -i * SPACING });
+      state.chain.push({
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        traveled: -i * SPACING,
+        powerup: i > 4 && Math.random() < 0.09,
+      });
     }
     state.currentColor = pickColor();
     state.nextColor = pickColor();
     updateHUD();
+    updatePowerupBadge();
+  }
+
+  function updatePowerupBadge() {
+    const label = document.getElementById('zw-powerup-label');
+    if (label) label.textContent = state.powerupType === 'slow' ? '減速' : '爆炸';
   }
 
   function triggerWin() {
@@ -535,6 +549,9 @@
     }
     state.particles.push({ x, y, vx: 0, vy: -30, life: 0.9, maxLife: 0.9, color: '#3f7a5c', text: '+15' });
   }
+  function spawnFloatingText(x, y, text, color) {
+    state.particles.push({ x, y, vx: 0, vy: -26, life: 1.2, maxLife: 1.2, color, text });
+  }
   function updateParticles(dt) {
     for (let i = state.particles.length - 1; i >= 0; i--) {
       const p = state.particles[i];
@@ -553,18 +570,43 @@
       while (lo - 1 >= 0 && state.chain[lo - 1].color === color) lo--;
       while (hi + 1 < state.chain.length && state.chain[hi + 1].color === color) hi++;
       if (hi - lo + 1 >= 3) {
+        let hasPowerup = false;
         for (let i = lo; i <= hi; i++) {
           const b = state.chain[i];
           const p = pointAt(Math.max(0, b.traveled));
           spawnBurst(p.x, p.y, b.color);
+          if (b.powerup) hasPowerup = true;
         }
         state.score += (hi - lo + 1) * 15;
         state.chain.splice(lo, hi - lo + 1);
         updateHUD();
+        if (hasPowerup) activatePowerup(lo);
         if (state.chain.length === 0) { changed = false; }
         else { idx = Math.min(lo, state.chain.length - 1); changed = true; }
       }
     }
+  }
+
+  function activatePowerup(atIdx) {
+    if (state.powerupType === 'slow') {
+      state.slowTimer = 4;
+      spawnFloatingText(cx, cy - BALL_R * 3, '減速!', '#3f6fb0');
+      return;
+    }
+    const radius = 2;
+    const from = Math.max(0, atIdx - radius);
+    const to = Math.min(state.chain.length - 1, atIdx + radius - 1);
+    if (to >= from) {
+      for (let i = from; i <= to; i++) {
+        const b = state.chain[i];
+        const p = pointAt(Math.max(0, b.traveled));
+        spawnBurst(p.x, p.y, b.color);
+      }
+      state.score += (to - from + 1) * 20;
+      state.chain.splice(from, to - from + 1);
+      updateHUD();
+    }
+    spawnFloatingText(cx, cy - BALL_R * 3, '爆炸!', '#c9572f');
   }
 
   function insertShot(shot, k) {
@@ -596,8 +638,20 @@
     updateParticles(dt);
     if (state.status !== 'playing') return;
     if (state.chain.length) {
-      const speed = 44 + Math.min(46, state.score * 0.02);
-      state.chain[0].traveled += speed * dt;
+      let speed = 30 + Math.min(30, state.score * 0.015);
+      if (state.slowTimer > 0) {
+        speed *= 0.4;
+        state.slowTimer -= dt;
+      }
+      // If clearing shells mid-chain left an open gap, freeze the front group in
+      // place until the trailing group catches up and closes it — otherwise the
+      // front keeps creeping toward the hole as if nothing happened.
+      let hasGap = false;
+      for (let i = 1; i < state.chain.length; i++) {
+        const maxT = state.chain[i - 1].traveled - SPACING;
+        if (maxT - state.chain[i].traveled > 2) { hasGap = true; break; }
+      }
+      if (!hasGap) { state.chain[0].traveled += speed * dt; }
       const followSpeed = speed * 2.2;
       const maxStep = followSpeed * dt;
       for (let i = 1; i < state.chain.length; i++) {
@@ -659,6 +713,17 @@
       const p = pointAt(b.traveled);
       const spr = sprites[b.color];
       ctx.drawImage(spr, p.x - spr.width / 2, p.y - spr.height / 2);
+      if (b.powerup) {
+        const pulse = 0.55 + 0.35 * Math.sin(performance.now() / 180);
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, BALL_R * 1.3, 0, Math.PI * 2);
+        ctx.strokeStyle = state.powerupType === 'slow' ? '#5b9bd6' : '#ff7a45';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
     state.shots.forEach(s => {
       const spr = sprites[s.color];
@@ -687,7 +752,10 @@
     const rect = canvas.getBoundingClientRect();
     const x = (evt.clientX - rect.left) * (640 / rect.width);
     const y = (evt.clientY - rect.top) * (640 / rect.height);
-    return { x, y, angle: Math.atan2(y - cy, x - cx) };
+    // On touch, lift the aim target well above the actual finger position so the
+    // trajectory and the shot itself aren't hidden under the player's thumb.
+    const aimY = evt.pointerType === 'touch' ? y - 130 : y;
+    return { x, y, angle: Math.atan2(aimY - cy, x - cx) };
   }
 
   canvas.addEventListener('pointerdown', e => {
