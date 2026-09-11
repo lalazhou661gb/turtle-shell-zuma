@@ -165,7 +165,7 @@
     .zw-tagline{ display:none; }
     .zw-h1{ font-size:22px; margin-bottom:0; }
     .zw-lb-wrap{ margin-top:10px; }
-    .zw-root{ width:min(94vw, 68dvh, 460px); }
+    .zw-root{ width:96vw; }
   }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap">
@@ -609,6 +609,12 @@
     }
   }
 
+  function countVisible() {
+    let n = 0;
+    for (let i = 0; i < state.chain.length; i++) if (state.chain[i].traveled >= 0) n++;
+    return n;
+  }
+
   function updateTier() {
     const tier = Math.floor(state.clearedCount / TIER_STEP);
     if (tier !== state.tier) {
@@ -624,6 +630,8 @@
     state.clearedCount = 0;
     state.tier = 0;
     state.powerupType = POWERUP_TYPES[0];
+    state.lowVisibleStreak = 0;
+    state.catchUpActive = false;
     hideOverlays();
     ensureChainSupply();
     state.currentColor = pickColor();
@@ -770,6 +778,15 @@
     });
     state.currentColor = state.nextColor;
     state.nextColor = pickColor();
+    if (countVisible() < 10) {
+      state.lowVisibleStreak++;
+      if (state.lowVisibleStreak >= 3 && !state.catchUpActive) {
+        state.catchUpActive = true;
+        spawnFloatingText(cx, cy - BALL_R * 3, '追趕中!', '#5b9bd6');
+      }
+    } else {
+      state.lowVisibleStreak = 0;
+    }
   }
 
   function update(dt) {
@@ -782,20 +799,32 @@
         speed *= 0.4;
         state.slowTimer -= dt;
       }
+      // If the screen has gone too empty across several shots (the player is
+      // clearing shells faster than the queue crawls into view), boost speed
+      // until enough shells are back on screen.
+      if (state.catchUpActive) {
+        speed *= 2.5;
+        if (countVisible() >= 16) { state.catchUpActive = false; state.lowVisibleStreak = 0; }
+      }
       // If clearing shells mid-chain left an open gap, freeze the front group in
       // place until the trailing group catches up and closes it — otherwise the
       // front keeps creeping toward the hole as if nothing happened. The trailing
-      // group closes the gap at the SAME pace as normal play, no extra boost.
+      // group closes a GAP (gone ahead) at the SAME pace as normal play, no extra
+      // boost — but an OVERLAP (a shot just inserted and needs to shove the tail
+      // back to make room) resolves faster so the separation is quick and clearly
+      // visible instead of a lingering clipped-sprite look.
       let hasGap = false;
       for (let i = 1; i < state.chain.length; i++) {
         const maxT = state.chain[i - 1].traveled - SPACING;
         if (maxT - state.chain[i].traveled > 2) { hasGap = true; break; }
       }
       if (!hasGap) { state.chain[0].traveled += speed * dt; }
-      const maxStep = speed * dt;
+      const maxStepGap = speed * dt;
+      const maxStepOverlap = speed * 3 * dt;
       for (let i = 1; i < state.chain.length; i++) {
         const maxT = state.chain[i - 1].traveled - SPACING;
         const diff = maxT - state.chain[i].traveled;
+        const maxStep = diff >= 0 ? maxStepGap : maxStepOverlap;
         if (Math.abs(diff) <= maxStep) state.chain[i].traveled = maxT;
         else state.chain[i].traveled += Math.sign(diff) * maxStep;
       }
