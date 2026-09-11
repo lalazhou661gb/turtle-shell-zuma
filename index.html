@@ -53,15 +53,6 @@
     .zw-bg-bubble{ animation:none; }
     .zw-header, .zw-scale-wrap{ animation:none !important; }
   }
-  @media (max-width:700px){
-    body{ padding:10px 10px 16px; }
-    .zw-bg-bubble{ display:none; }
-    .zw-header{ margin-bottom:10px; }
-    .zw-eyebrow{ display:none; }
-    .zw-tagline{ display:none; }
-    .zw-h1{ font-size:22px; margin-bottom:0; }
-    .zw-lb-wrap{ margin-top:10px; }
-  }
   .zw-header{
     text-align:center;
     max-width:560px;
@@ -105,7 +96,7 @@
     animation:zw-rise .8s .1s cubic-bezier(.2,.8,.3,1) both;
   }
   .zw-root{
-    width:min(94vw, 68dvh, 620px);
+    width:min(94vw, 620px);
     box-sizing:border-box;
     padding:14px;
     display:flex;
@@ -166,6 +157,16 @@
   .zw-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   .zw-modal-close{border:none;background:#eef3ee;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .zw-modal-close:hover{background:#e4ebe4;}
+  @media (max-width:700px){
+    body{ padding:10px 10px 16px; }
+    .zw-bg-bubble{ display:none; }
+    .zw-header{ margin-bottom:10px; }
+    .zw-eyebrow{ display:none; }
+    .zw-tagline{ display:none; }
+    .zw-h1{ font-size:22px; margin-bottom:0; }
+    .zw-lb-wrap{ margin-top:10px; }
+    .zw-root{ width:min(94vw, 68dvh, 460px); }
+  }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap">
 
