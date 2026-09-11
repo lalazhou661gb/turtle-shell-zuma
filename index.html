@@ -18,9 +18,13 @@
     --pond-text-soft:#6b8f7f;
   }
   *{box-sizing:border-box;}
+  html{
+    overscroll-behavior:none;
+  }
   body{
     margin:0;
     min-height:100vh;
+    min-height:100svh;
     background:
       radial-gradient(circle at 12% 18%, rgba(191,230,176,0.5) 0, transparent 40%),
       radial-gradient(circle at 88% 82%, rgba(142,205,240,0.35) 0, transparent 45%),
@@ -32,6 +36,15 @@
     align-items:center;
     padding:40px 16px 56px;
     overflow-x:hidden;
+    overscroll-behavior:none;
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-touch-callout:none;
+  }
+  input, textarea{
+    -webkit-user-select:text;
+    user-select:text;
+    -webkit-touch-callout:default;
   }
   @font-face{
     font-family:'Baloo 2';
@@ -142,6 +155,11 @@
   .zw-lb-empty{font-size:13px;color:var(--pond-text-soft);text-align:center;padding:8px 0;}
   .zw-lb-note{font-size:11px;color:var(--pond-text-soft);text-align:center;margin-top:10px;}
   .zw-lb-comment{font-size:11px;font-weight:400;color:var(--pond-text-soft);margin-left:4px;}
+  .zw-lb-time{flex-shrink:0;font-size:10px;color:var(--pond-text-soft);font-variant-numeric:tabular-nums;min-width:30px;text-align:right;}
+  .zw-devlog{width:100%;max-width:640px;margin-top:14px;text-align:center;}
+  .zw-devlog-title{font-size:11px;font-weight:700;color:var(--pond-text-soft);letter-spacing:.08em;text-transform:uppercase;margin:0 0 4px;}
+  .zw-devlog-list{list-style:none;margin:0;padding:0;font-size:11px;color:var(--pond-text-soft);line-height:1.8;}
+  .zw-devlog-list b{color:var(--pond-leaf);font-weight:700;}
   .zw-pause-btn{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.88);box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;}
   .zw-pause-btn:hover{background:#fff;}
   .zw-record-ask{margin:14px 0 8px;font-size:14px;font-weight:700;color:var(--pond-deep);}
@@ -211,7 +229,7 @@
     <div class="zw-overlay show" id="zw-start">
       <div class="zw-panel">
         <h2>準備好了嗎?</h2>
-        <p>龜殼會不斷從入口冒出,撐得越久分數越高!<br>拖曳畫面瞄準,放開發射,湊齊 3 個同色即可消除。<br>每消滅 50 顆速度會加快,法寶種類也會跟著換新!</p>
+        <p>龜殼會不斷從入口冒出,撐得越久分數越高!<br>拖曳畫面瞄準,放開發射,湊齊 3 個同色即可消除。<br>閃亮外框的龜殼是本回合法寶,消除它會觸發特殊效果!</p>
         <div class="zw-name-row">
           <input class="zw-name-input" id="zw-name-input" type="text" maxlength="12" placeholder="幫你的小龜取個名字">
         </div>
@@ -263,6 +281,14 @@
     <p class="zw-lb-note" id="zw-lb-note" hidden>排行榜暫時無法連線,先享受遊戲吧!</p>
     <button class="zw-lb-more-btn" id="zw-lb-open-btn">查看完整排行榜</button>
   </div>
+</div>
+
+<div class="zw-devlog">
+  <p class="zw-devlog-title">開發紀錄</p>
+  <ul class="zw-devlog-list">
+    <li><b>9/10</b> 開發上線</li>
+    <li><b>9/11</b> 版本更新為無限模式</li>
+  </ul>
 </div>
 
 <div class="zw-modal" id="zw-lb-modal">
@@ -327,11 +353,12 @@
   const cx = 320, cy = 320, R_OUT = 284, R_IN = 54, TURNS = 2.25;
   const BALL_R = 21, SPACING = BALL_R * 2 * 0.94;
   const CHAIN_BUFFER = 40;
-  const TIER_STEP = 50;
+  const SPEED_TIER_STEP = 10;
+  const POWERUP_TIER_STEP = 50;
   const BASE_SPEED = 24;
-  const SPEED_PER_TIER = 6;
-  const POWERUP_TYPES = ['slow', 'bomb', 'rainbow'];
-  const POWERUP_NAMES = { slow: '減速', bomb: '爆炸', rainbow: '彩虹百搭' };
+  const SPEED_PER_TIER = 1.2;
+  const POWERUP_TYPES = ['slow', 'bomb', 'rainbow', 'freeze', 'shield'];
+  const POWERUP_NAMES = { slow: '減速', bomb: '爆炸', rainbow: '彩虹百搭', freeze: '凍結', shield: '護盾' };
 
   const thetaMax = TURNS * Math.PI * 2;
   const steps = 900;
@@ -421,12 +448,31 @@
   const sprites = {};
   COLORS.forEach(c => { sprites[c] = makeShellSprite(c); });
 
-  function drawLilyPad(x, y, r) {
-    ctx.save(); ctx.translate(x, y);
-    ctx.beginPath(); ctx.arc(0, 0, r, 0.35, Math.PI * 2 - 0.35); ctx.lineTo(0, 0); ctx.closePath();
-    ctx.fillStyle = '#bfe6b0'; ctx.fill(); ctx.strokeStyle = '#9fd18c'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.restore();
+  function drawLilyPad(g, x, y, r) {
+    g.save(); g.translate(x, y);
+    g.beginPath(); g.arc(0, 0, r, 0.35, Math.PI * 2 - 0.35); g.lineTo(0, 0); g.closePath();
+    g.fillStyle = '#bfe6b0'; g.fill(); g.strokeStyle = '#9fd18c'; g.lineWidth = 1.5; g.stroke();
+    g.restore();
   }
+
+  // The pond background (gradient + lily pads + the 900-point spiral track) never
+  // changes, so it's rendered once to an offscreen canvas instead of being
+  // recomputed every frame — that recompute was heavy enough to visibly slow the
+  // game down on weaker mobile hardware.
+  const bgCanvas = document.createElement('canvas');
+  bgCanvas.width = 640 * DPR;
+  bgCanvas.height = 640 * DPR;
+  const bgCtx = bgCanvas.getContext('2d');
+  bgCtx.scale(DPR, DPR);
+  (function renderBackground() {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, 640);
+    grad.addColorStop(0, '#eafaf0'); grad.addColorStop(1, '#d9f0f5');
+    bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, 640, 640);
+    drawLilyPad(bgCtx, 66, 66, 32); drawLilyPad(bgCtx, 566, 86, 24); drawLilyPad(bgCtx, 84, 566, 26); drawLilyPad(bgCtx, 578, 572, 34);
+    bgCtx.beginPath();
+    pathPts.forEach((p, i) => i ? bgCtx.lineTo(p.x, p.y) : bgCtx.moveTo(p.x, p.y));
+    bgCtx.strokeStyle = '#e8dcb8'; bgCtx.lineWidth = BALL_R * 2.1; bgCtx.lineCap = 'round'; bgCtx.lineJoin = 'round'; bgCtx.stroke();
+  })();
 
   const state = {
     status: 'start', chain: [], shots: [], particles: [], score: 0,
@@ -498,6 +544,13 @@
     if (name && !nameInput.value) nameInput.value = name;
   }
 
+  function formatEntryTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
   function renderEntriesInto(listId, entries) {
     const list = document.getElementById(listId);
     if (!list) return;
@@ -506,8 +559,10 @@
       const name = escapeHtml(String(e.name || '無名龜').slice(0, 12));
       const score = Number(e.score) || 0;
       const comment = e.comment ? '<span class="zw-lb-comment">「' + escapeHtml(String(e.comment).slice(0, 10)) + '」</span>' : '';
+      const time = formatEntryTime(e.updatedAt);
+      const timeHtml = time ? '<span class="zw-lb-time">' + time + '</span>' : '';
       const mine = e.id === playerId ? ' me' : '';
-      return '<div class="zw-lb-row' + mine + '"><span class="zw-lb-rank">' + (i + 1) + '</span><span class="zw-lb-name">' + name + comment + '</span><span class="zw-lb-score">' + score + '</span></div>';
+      return '<div class="zw-lb-row' + mine + '"><span class="zw-lb-rank">' + (i + 1) + '</span><span class="zw-lb-name">' + name + comment + '</span><span class="zw-lb-score">' + score + '</span>' + timeHtml + '</div>';
     }).join('');
   }
   function renderLeaderboard(entries) {
@@ -522,7 +577,7 @@
         const snap = await lbCollection.orderBy('score', 'desc').limit(30).get();
         renderEntriesInto('zw-lb-full-list', snap.docs.map(function (d) {
           const data = d.data() || {};
-          return { id: d.id, name: data.name, score: data.score, comment: data.comment };
+          return { id: d.id, name: data.name, score: data.score, comment: data.comment, updatedAt: data.updatedAt };
         }));
       } else if (backend === 'cloudflare' && LEADERBOARD_API) {
         const res = await fetch(LEADERBOARD_API + '/leaderboard?limit=30');
@@ -559,7 +614,7 @@
     lbCollection.orderBy('score', 'desc').limit(5).onSnapshot(function (snap) {
       renderLeaderboard(snap.docs.map(function (d) {
         const data = d.data() || {};
-        return { id: d.id, name: data.name, score: data.score, comment: data.comment };
+        return { id: d.id, name: data.name, score: data.score, comment: data.comment, updatedAt: data.updatedAt };
       }));
     }, function () { showLbNote(); });
     return true;
@@ -616,10 +671,11 @@
   }
 
   function updateTier() {
-    const tier = Math.floor(state.clearedCount / TIER_STEP);
-    if (tier !== state.tier) {
-      state.tier = tier;
-      state.powerupType = POWERUP_TYPES[tier % POWERUP_TYPES.length];
+    state.speedTier = Math.floor(state.clearedCount / SPEED_TIER_STEP);
+    const powerupTier = Math.floor(state.clearedCount / POWERUP_TIER_STEP);
+    if (powerupTier !== state.powerupTier) {
+      state.powerupTier = powerupTier;
+      state.powerupType = POWERUP_TYPES[powerupTier % POWERUP_TYPES.length];
       updatePowerupBadge();
     }
   }
@@ -627,8 +683,11 @@
   function initGame() {
     state.chain = []; state.shots = []; state.particles = []; state.score = 0; state.status = 'playing';
     state.slowTimer = 0;
+    state.freezeTimer = 0;
+    state.shieldCharges = 0;
     state.clearedCount = 0;
-    state.tier = 0;
+    state.speedTier = 0;
+    state.powerupTier = 0;
     state.powerupType = POWERUP_TYPES[0];
     state.lowVisibleStreak = 0;
     state.catchUpActive = false;
@@ -693,31 +752,45 @@
     return ball.color === color || (state.powerupType === 'rainbow' && ball.powerup);
   }
 
-  function resolveMatches(startIdx) {
+  function isTouching(a, b) {
+    return Math.abs(a.traveled - b.traveled) <= SPACING + 2;
+  }
+
+  function resolveMatches(startIdx, firedIdx) {
     let idx = startIdx, changed = true;
+    let firstPass = true;
     while (changed) {
       changed = false;
       if (idx < 0 || idx >= state.chain.length) break;
       const color = state.chain[idx].color;
       let lo = idx, hi = idx;
-      while (lo - 1 >= 0 && matchesColor(state.chain[lo - 1], color)) lo--;
-      while (hi + 1 < state.chain.length && matchesColor(state.chain[hi + 1], color)) hi++;
+      // Only extend through shells that are both color-matching AND actually
+      // touching — array-adjacent isn't enough. Right after a mid-chain clear,
+      // the two sides of the still-open gap can be array-adjacent with matching
+      // colors while visually far apart; they must not pop until they touch.
+      while (lo - 1 >= 0 && matchesColor(state.chain[lo - 1], color) && isTouching(state.chain[lo - 1], state.chain[lo])) lo--;
+      while (hi + 1 < state.chain.length && matchesColor(state.chain[hi + 1], color) && isTouching(state.chain[hi], state.chain[hi + 1])) hi++;
       if (hi - lo + 1 >= 3) {
         let hasPowerup = false;
+        let scorable = 0;
         for (let i = lo; i <= hi; i++) {
           const b = state.chain[i];
           const p = pointAt(Math.max(0, b.traveled));
           spawnBurst(p.x, p.y, b.color);
           if (b.powerup) hasPowerup = true;
+          // The shell the player just fired doesn't score itself — only the
+          // shells already in the chain that it completed a run with do.
+          if (!(firstPass && i === firedIdx)) scorable++;
         }
         const removedCount = hi - lo + 1;
-        state.score += removedCount * 15;
+        state.score += scorable * 15;
         state.chain.splice(lo, removedCount);
         state.clearedCount += removedCount;
         updateTier();
         updateHUD();
         if (hasPowerup) activatePowerup(lo);
         ensureChainSupply();
+        firstPass = false;
         if (state.chain.length === 0) { changed = false; }
         else { idx = Math.min(lo, state.chain.length - 1); changed = true; }
       }
@@ -734,6 +807,16 @@
       state.score += 30;
       updateHUD();
       spawnFloatingText(cx, cy - BALL_R * 3, '百搭連線!', '#a56bd6');
+      return;
+    }
+    if (state.powerupType === 'freeze') {
+      state.freezeTimer = 3;
+      spawnFloatingText(cx, cy - BALL_R * 3, '凍結!', '#7ec8e3');
+      return;
+    }
+    if (state.powerupType === 'shield') {
+      state.shieldCharges = (state.shieldCharges || 0) + 1;
+      spawnFloatingText(cx, cy - BALL_R * 3, '獲得護盾!', '#f0c419');
       return;
     }
     const radius = 2;
@@ -765,7 +848,7 @@
     else newBall.traveled = chain[idx - 1].traveled - SPACING;
     chain.splice(idx, 0, newBall);
     updateHUD();
-    resolveMatches(idx);
+    resolveMatches(idx, idx);
   }
 
   function fireShot() {
@@ -794,17 +877,22 @@
     if (state.status !== 'playing') return;
     ensureChainSupply();
     if (state.chain.length) {
-      let speed = BASE_SPEED + state.tier * SPEED_PER_TIER;
-      if (state.slowTimer > 0) {
-        speed *= 0.4;
-        state.slowTimer -= dt;
-      }
-      // If the screen has gone too empty across several shots (the player is
-      // clearing shells faster than the queue crawls into view), boost speed
-      // until enough shells are back on screen.
-      if (state.catchUpActive) {
-        speed *= 2.5;
-        if (countVisible() >= 16) { state.catchUpActive = false; state.lowVisibleStreak = 0; }
+      let speed = BASE_SPEED + state.speedTier * SPEED_PER_TIER;
+      if (state.freezeTimer > 0) {
+        speed = 0;
+        state.freezeTimer -= dt;
+      } else {
+        if (state.slowTimer > 0) {
+          speed *= 0.4;
+          state.slowTimer -= dt;
+        }
+        // If the screen has gone too empty across several shots (the player is
+        // clearing shells faster than the queue crawls into view), boost speed
+        // until enough shells are back on screen.
+        if (state.catchUpActive) {
+          speed *= 2.5;
+          if (countVisible() >= 16) { state.catchUpActive = false; state.lowVisibleStreak = 0; }
+        }
       }
       // If clearing shells mid-chain left an open gap, freeze the front group in
       // place until the trailing group catches up and closes it — otherwise the
@@ -828,7 +916,15 @@
         if (Math.abs(diff) <= maxStep) state.chain[i].traveled = maxT;
         else state.chain[i].traveled += Math.sign(diff) * maxStep;
       }
-      if (state.chain[0].traveled >= pathLength) { triggerLose(); return; }
+      if (state.chain[0].traveled >= pathLength) {
+        if (state.shieldCharges > 0) {
+          state.shieldCharges--;
+          for (let i = 0; i < state.chain.length; i++) state.chain[i].traveled -= SPACING * 6;
+          spawnFloatingText(cx, cy, '護盾抵擋了一次!', '#f0c419');
+        } else {
+          triggerLose(); return;
+        }
+      }
     }
     for (let i = state.shots.length - 1; i >= 0; i--) {
       const s = state.shots[i];
@@ -866,13 +962,7 @@
 
   function draw() {
     ctx.clearRect(0, 0, 640, 640);
-    const grad = ctx.createLinearGradient(0, 0, 0, 640);
-    grad.addColorStop(0, '#eafaf0'); grad.addColorStop(1, '#d9f0f5');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, 640, 640);
-    drawLilyPad(66, 66, 32); drawLilyPad(566, 86, 24); drawLilyPad(84, 566, 26); drawLilyPad(578, 572, 34);
-    ctx.beginPath();
-    pathPts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-    ctx.strokeStyle = '#e8dcb8'; ctx.lineWidth = BALL_R * 2.1; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.drawImage(bgCanvas, 0, 0, 640, 640);
     for (let i = state.chain.length - 1; i >= 0; i--) {
       const b = state.chain[i];
       if (b.traveled < 0) continue;
@@ -887,6 +977,8 @@
         ctx.arc(p.x, p.y, BALL_R * 1.3, 0, Math.PI * 2);
         ctx.strokeStyle = state.powerupType === 'slow' ? '#5b9bd6'
           : state.powerupType === 'bomb' ? '#ff7a45'
+          : state.powerupType === 'freeze' ? '#7ec8e3'
+          : state.powerupType === 'shield' ? '#f0c419'
           : 'hsl(' + ((performance.now() / 8) % 360) + ',75%,60%)';
         ctx.lineWidth = 3;
         ctx.stroke();
@@ -908,9 +1000,14 @@
       ctx.globalAlpha = 1;
     });
     if (state.status === 'playing') {
-      ctx.save(); ctx.beginPath(); ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(state.aimAngle) * 300, cy + Math.sin(state.aimAngle) * 300);
-      ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(63,122,92,0.35)'; ctx.lineWidth = 2; ctx.stroke();
+      const aimX = cx + Math.cos(state.aimAngle) * 300, aimY = cy + Math.sin(state.aimAngle) * 300;
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(aimX, aimY);
+      ctx.setLineDash([10, 8]); ctx.lineCap = 'round';
+      // A light halo first so the line stays visible over both light and dark
+      // patches of the background, then a solid dark line on top for contrast.
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 6.5; ctx.stroke();
+      ctx.strokeStyle = '#1f3d30'; ctx.lineWidth = 3.5; ctx.stroke();
       ctx.restore();
     }
     drawHub();
