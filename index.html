@@ -155,7 +155,7 @@
   .zw-lb-empty{font-size:13px;color:var(--pond-text-soft);text-align:center;padding:8px 0;}
   .zw-lb-note{font-size:11px;color:var(--pond-text-soft);text-align:center;margin-top:10px;}
   .zw-lb-comment{font-size:11px;font-weight:400;color:var(--pond-text-soft);margin-left:4px;}
-  .zw-lb-time{flex-shrink:0;font-size:10px;color:var(--pond-text-soft);font-variant-numeric:tabular-nums;min-width:30px;text-align:right;}
+  .zw-lb-time{flex-shrink:0;font-size:10px;color:var(--pond-text-soft);font-variant-numeric:tabular-nums;min-width:56px;text-align:right;white-space:nowrap;}
   .zw-devlog{width:100%;max-width:640px;margin-top:14px;text-align:center;}
   .zw-devlog-title{font-size:11px;font-weight:700;color:var(--pond-text-soft);letter-spacing:.08em;text-transform:uppercase;margin:0 0 4px;}
   .zw-devlog-list{list-style:none;margin:0;padding:0;font-size:11px;color:var(--pond-text-soft);line-height:1.8;}
@@ -344,14 +344,21 @@
 
   const canvas = document.getElementById('zw-canvas');
   const ctx = canvas.getContext('2d');
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const isMobileLayout = window.innerWidth <= 700;
+  const DPR = Math.min(window.devicePixelRatio || 1, isMobileLayout ? 1.5 : 2);
   canvas.width = 640 * DPR;
   canvas.height = 640 * DPR;
   ctx.scale(DPR, DPR);
   canvas.addEventListener('dragstart', e => e.preventDefault());
 
   const cx = 320, cy = 320, R_OUT = 284, R_IN = 54, TURNS = 2.25;
-  const BALL_R = 21, SPACING = BALL_R * 2 * 0.94;
+  // Bigger shells and a bolder aim line on mobile — a fixed logical size reads
+  // noticeably smaller once the same 640-unit canvas is displayed at a much
+  // smaller physical size, so mobile gets its own larger constants rather than
+  // just being a scaled-down copy of the desktop layout.
+  const BALL_R = isMobileLayout ? 27 : 21, SPACING = BALL_R * 2 * 0.94;
+  const AIM_HALO_WIDTH = isMobileLayout ? 9 : 6.5;
+  const AIM_CORE_WIDTH = isMobileLayout ? 5 : 3.5;
   const CHAIN_BUFFER = 40;
   const SPEED_TIER_STEP = 10;
   const POWERUP_TIER_STEP = 50;
@@ -548,7 +555,9 @@
     if (!ts) return '';
     const d = new Date(ts);
     if (isNaN(d.getTime())) return '';
-    return (d.getMonth() + 1) + '/' + d.getDate();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm;
   }
 
   function renderEntriesInto(listId, entries) {
@@ -738,7 +747,7 @@
     state.particles.push({ x, y, vx: 0, vy: -30, life: 0.9, maxLife: 0.9, color: '#3f7a5c', text: '+15' });
   }
   function spawnFloatingText(x, y, text, color) {
-    state.particles.push({ x, y, vx: 0, vy: -26, life: 1.2, maxLife: 1.2, color, text });
+    state.particles.push({ x, y, vx: 0, vy: -26, life: 1.4, maxLife: 1.4, color, text, big: true });
   }
   function updateParticles(dt) {
     for (let i = state.particles.length - 1; i >= 0; i--) {
@@ -804,8 +813,29 @@
       return;
     }
     if (state.powerupType === 'rainbow') {
-      state.score += 30;
-      updateHUD();
+      // The wildcard-bridging behavior in matchesColor() is a nice bonus when it
+      // lines up, but that's a narrow, easy-to-miss configuration — give rainbow
+      // a guaranteed small area-clear too, like bomb, so popping one is always
+      // unmistakably doing something.
+      const radius = 1;
+      const from = Math.max(0, atIdx - radius);
+      const to = Math.min(state.chain.length - 1, atIdx + radius - 1);
+      if (to >= from) {
+        for (let i = from; i <= to; i++) {
+          const b = state.chain[i];
+          const p = pointAt(Math.max(0, b.traveled));
+          spawnBurst(p.x, p.y, b.color);
+        }
+        const removedCount = to - from + 1;
+        state.score += removedCount * 20;
+        state.chain.splice(from, removedCount);
+        state.clearedCount += removedCount;
+        updateTier();
+        updateHUD();
+      } else {
+        state.score += 30;
+        updateHUD();
+      }
       spawnFloatingText(cx, cy - BALL_R * 3, '百搭連線!', '#a56bd6');
       return;
     }
@@ -992,7 +1022,10 @@
     state.particles.forEach(p => {
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
       if (p.text) {
-        ctx.fillStyle = p.color; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = p.color;
+        ctx.font = 'bold ' + (p.big ? BALL_R * 0.9 : BALL_R * 0.55) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        if (p.big) { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.strokeText(p.text, p.x, p.y); }
         ctx.fillText(p.text, p.x, p.y);
       } else {
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
@@ -1006,8 +1039,8 @@
       ctx.setLineDash([10, 8]); ctx.lineCap = 'round';
       // A light halo first so the line stays visible over both light and dark
       // patches of the background, then a solid dark line on top for contrast.
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 6.5; ctx.stroke();
-      ctx.strokeStyle = '#1f3d30'; ctx.lineWidth = 3.5; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = AIM_HALO_WIDTH; ctx.stroke();
+      ctx.strokeStyle = '#1f3d30'; ctx.lineWidth = AIM_CORE_WIDTH; ctx.stroke();
       ctx.restore();
     }
     drawHub();
