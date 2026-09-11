@@ -46,6 +46,15 @@
     .zw-bg-bubble{ animation:none; }
     .zw-header, .zw-scale-wrap{ animation:none !important; }
   }
+  @media (max-width:700px){
+    body{ padding:10px 10px 16px; }
+    .zw-bg-bubble{ display:none; }
+    .zw-header{ margin-bottom:10px; }
+    .zw-eyebrow{ display:none; }
+    .zw-tagline{ display:none; }
+    .zw-h1{ font-size:22px; margin-bottom:0; }
+    .zw-lb-wrap{ margin-top:10px; }
+  }
   .zw-header{
     text-align:center;
     max-width:560px;
@@ -89,32 +98,29 @@
     animation:zw-rise .8s .1s cubic-bezier(.2,.8,.3,1) both;
   }
   .zw-root{
-    width:680px;
-    height:780px;
-    flex-shrink:0;
-    transform-origin:top center;
+    width:min(94vw, 68dvh, 620px);
     box-sizing:border-box;
-    padding:18px;
+    padding:14px;
     display:flex;
     flex-direction:column;
-    gap:10px;
+    gap:8px;
     background:linear-gradient(160deg,#eafaf0 0%,#dff3f8 55%,#e8f6e4 100%);
-    border-radius:28px;
+    border-radius:26px;
     position:relative;
     box-shadow:0 22px 50px rgba(63,122,92,0.22), 0 2px 0 rgba(255,255,255,0.6) inset;
   }
   a{ color:var(--pond-leaf); }
   a:hover{ color:var(--pond-deep); }
-  .zw-hud{display:flex;align-items:center;justify-content:space-between;height:52px;flex-shrink:0;padding:0 4px;}
-  .zw-title{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:800;color:var(--pond-deep);letter-spacing:1px;}
-  .zw-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;font-family:"Baloo 2","PingFang TC",sans-serif;}
-  .zw-badge{background:rgba(255,255,255,0.8);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;color:#4a7c66;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .zw-badge b{color:var(--pond-coral);font-size:16px;}
-  .zw-stage{position:relative;width:640px;height:640px;border-radius:22px;overflow:hidden;box-shadow:0 4px 18px rgba(60,110,90,0.18);flex-shrink:0;}
-  canvas#zw-canvas{display:block;width:640px;height:640px;touch-action:none;cursor:crosshair;}
+  .zw-hud{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding:0 4px;gap:6px;}
+  .zw-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:800;color:var(--pond-deep);letter-spacing:.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .zw-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;font-family:"Baloo 2","PingFang TC",sans-serif;}
+  .zw-badge{background:rgba(255,255,255,0.8);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;color:#4a7c66;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .zw-badge b{color:var(--pond-coral);font-size:14px;}
+  .zw-stage{position:relative;width:100%;aspect-ratio:1/1;border-radius:20px;overflow:hidden;box-shadow:0 4px 18px rgba(60,110,90,0.18);flex-shrink:0;}
+  canvas#zw-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;}
   .zw-overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(30,60,50,0.4);}
   .zw-overlay.show{display:flex;}
-  .zw-panel{background:var(--pond-card);border-radius:24px;padding:28px 32px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.22);max-width:400px;}
+  .zw-panel{background:var(--pond-card);border-radius:24px;padding:24px 20px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.22);max-width:min(400px, 90%);max-height:92%;overflow-y:auto;}
   .zw-panel h2{margin:0 0 8px;font-size:26px;color:var(--pond-deep);}
   .zw-panel p{margin:0 0 18px;font-size:14px;color:var(--pond-text-soft);line-height:1.7;}
   .zw-btn{border:none;border-radius:999px;padding:12px 30px;font-family:"Baloo 2","PingFang TC",sans-serif;font-size:16px;font-weight:800;color:#fff;background:linear-gradient(135deg,#7bd6a0,#4fb787);box-shadow:0 6px 14px rgba(79,183,135,0.4);cursor:pointer;min-height:44px;min-width:130px;transition:transform .15s ease, box-shadow .15s ease;}
@@ -185,7 +191,7 @@
     <div class="zw-badges">
       <div class="zw-badge">分數 <b id="zw-score">0</b></div>
       <div class="zw-badge">最高 <b id="zw-highscore">0</b></div>
-      <div class="zw-badge">剩餘 <b id="zw-remain">0</b></div>
+      <div class="zw-badge">已消滅 <b id="zw-remain">0</b></div>
       <div class="zw-badge">法寶 <b id="zw-powerup-label">-</b></div>
     </div>
   </div>
@@ -197,7 +203,7 @@
     <div class="zw-overlay show" id="zw-start">
       <div class="zw-panel">
         <h2>準備好了嗎?</h2>
-        <p>拖曳畫面瞄準,放開即可發射龜殼!<br>湊齊 3 個同色龜殼即可消除,別讓隊伍抵達池心。<br>閃亮外框的龜殼是本回合法寶,消除它會觸發特殊效果!</p>
+        <p>龜殼會不斷從入口冒出,撐得越久分數越高!<br>拖曳畫面瞄準,放開發射,湊齊 3 個同色即可消除。<br>每消滅 50 顆速度會加快,法寶種類也會跟著換新!</p>
         <div class="zw-name-row">
           <input class="zw-name-input" id="zw-name-input" type="text" maxlength="12" placeholder="幫你的小龜取個名字">
         </div>
@@ -212,26 +218,10 @@
         <button class="zw-btn" id="zw-resume-btn">繼續遊戲</button>
       </div>
     </div>
-    <div class="zw-overlay" id="zw-win">
-      <div class="zw-panel">
-        <h2>過關成功!</h2>
-        <p>你保護了所有小烏龜,太棒了!<br>最終分數 <b id="zw-win-score">0</b></p>
-        <p class="zw-record-ask">是否留下本次紀錄?</p>
-        <div class="zw-name-row">
-          <input class="zw-name-input" id="zw-win-comment" type="text" maxlength="10" placeholder="感言(可不寫,10字內)">
-        </div>
-        <div class="zw-record-actions">
-          <button class="zw-btn zw-btn-ghost" id="zw-win-skip-btn">不留紀錄</button>
-          <button class="zw-btn" id="zw-win-save-btn">留下紀錄</button>
-        </div>
-        <p class="zw-record-status" id="zw-win-status"></p>
-        <button class="zw-btn" id="zw-win-btn">再玩一次</button>
-      </div>
-    </div>
     <div class="zw-overlay" id="zw-lose">
       <div class="zw-panel">
         <h2>遊戲結束</h2>
-        <p>龜殼隊伍游到池心洞穴了...<br>最終分數 <b id="zw-lose-score">0</b></p>
+        <p>龜殼隊伍游到池心洞穴了...<br>最終分數 <b id="zw-lose-score">0</b><br>共消滅 <b id="zw-lose-cleared">0</b> 顆龜殼</p>
         <p class="zw-record-ask">是否留下本次紀錄?</p>
         <div class="zw-name-row">
           <input class="zw-name-input" id="zw-lose-comment" type="text" maxlength="10" placeholder="感言(可不寫,10字內)">
@@ -283,23 +273,6 @@
 
 <script>
 (function(){
-  function fitScale(){
-    var wrap = document.getElementById('zw-scale-wrap');
-    var card = document.getElementById('zw-root');
-    var header = document.querySelector('.zw-header');
-    var availW = Math.min(window.innerWidth - 32, 680);
-    var headerH = header ? header.getBoundingClientRect().height : 0;
-    var availH = window.innerHeight - headerH - 56;
-    var scaleW = availW / 680;
-    var scaleH = Math.max(0.42, availH / 780);
-    var scale = Math.min(1, scaleW, scaleH);
-    card.style.transform = 'scale(' + scale + ')';
-    wrap.style.height = (780 * scale) + 'px';
-  }
-  window.addEventListener('resize', fitScale);
-  fitScale();
-  setTimeout(fitScale, 200);
-
   var HS_KEY = 'zw-turtle-zuma-highscore';
   function readLocalBest(){
     try { return parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0; } catch (e) { return 0; }
@@ -340,15 +313,17 @@
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = 640 * DPR;
   canvas.height = 640 * DPR;
-  canvas.style.width = '640px';
-  canvas.style.height = '640px';
   ctx.scale(DPR, DPR);
   canvas.addEventListener('dragstart', e => e.preventDefault());
 
   const cx = 320, cy = 320, R_OUT = 284, R_IN = 54, TURNS = 2.25;
   const BALL_R = 21, SPACING = BALL_R * 2 * 0.94;
-  const TOTAL_SHELLS = 36;
-  const POWERUP_TYPES = ['slow', 'bomb'];
+  const CHAIN_BUFFER = 40;
+  const TIER_STEP = 50;
+  const BASE_SPEED = 24;
+  const SPEED_PER_TIER = 6;
+  const POWERUP_TYPES = ['slow', 'bomb', 'rainbow'];
+  const POWERUP_NAMES = { slow: '減速', bomb: '爆炸', rainbow: '彩虹百搭' };
 
   const thetaMax = TURNS * Math.PI * 2;
   const steps = 900;
@@ -461,14 +436,14 @@
   }
 
   function showOverlay(id) {
-    ['zw-start', 'zw-win', 'zw-lose', 'zw-pause'].forEach(o => document.getElementById(o).classList.toggle('show', o === id));
+    ['zw-start', 'zw-lose', 'zw-pause'].forEach(o => document.getElementById(o).classList.toggle('show', o === id));
   }
   function hideOverlays() {
-    ['zw-start', 'zw-win', 'zw-lose', 'zw-pause'].forEach(o => document.getElementById(o).classList.remove('show'));
+    ['zw-start', 'zw-lose', 'zw-pause'].forEach(o => document.getElementById(o).classList.remove('show'));
   }
   function updateHUD() {
     document.getElementById('zw-score').textContent = state.score;
-    document.getElementById('zw-remain').textContent = state.chain.length;
+    document.getElementById('zw-remain').textContent = state.clearedCount || 0;
     if (state.score > state.personalBest) {
       state.personalBest = state.score;
       document.getElementById('zw-highscore').textContent = state.personalBest;
@@ -614,18 +589,35 @@
     }
   })();
 
+  function ensureChainSupply() {
+    while (state.chain.length < CHAIN_BUFFER) {
+      const last = state.chain[state.chain.length - 1];
+      const traveled = last ? last.traveled - SPACING : 0;
+      state.chain.push({
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        traveled: traveled,
+        powerup: Math.random() < 0.09,
+      });
+    }
+  }
+
+  function updateTier() {
+    const tier = Math.floor(state.clearedCount / TIER_STEP);
+    if (tier !== state.tier) {
+      state.tier = tier;
+      state.powerupType = POWERUP_TYPES[tier % POWERUP_TYPES.length];
+      updatePowerupBadge();
+    }
+  }
+
   function initGame() {
     state.chain = []; state.shots = []; state.particles = []; state.score = 0; state.status = 'playing';
     state.slowTimer = 0;
-    state.powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    state.clearedCount = 0;
+    state.tier = 0;
+    state.powerupType = POWERUP_TYPES[0];
     hideOverlays();
-    for (let i = 0; i < TOTAL_SHELLS; i++) {
-      state.chain.push({
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        traveled: -i * SPACING,
-        powerup: i > 4 && Math.random() < 0.09,
-      });
-    }
+    ensureChainSupply();
     state.currentColor = pickColor();
     state.nextColor = pickColor();
     updateHUD();
@@ -635,22 +627,15 @@
 
   function updatePowerupBadge() {
     const label = document.getElementById('zw-powerup-label');
-    if (label) label.textContent = state.powerupType === 'slow' ? '減速' : '爆炸';
+    if (label) label.textContent = POWERUP_NAMES[state.powerupType] || '-';
   }
 
-  function triggerWin() {
-    state.status = 'win';
-    writeLocalBest(state.personalBest);
-    setPauseButtonVisible(false);
-    document.getElementById('zw-win-score').textContent = state.score;
-    resetRecordUI('win');
-    showOverlay('zw-win');
-  }
   function triggerLose() {
     state.status = 'lose';
     writeLocalBest(state.personalBest);
     setPauseButtonVisible(false);
     document.getElementById('zw-lose-score').textContent = state.score;
+    document.getElementById('zw-lose-cleared').textContent = state.clearedCount;
     resetRecordUI('lose');
     showOverlay('zw-lose');
   }
@@ -688,6 +673,10 @@
     }
   }
 
+  function matchesColor(ball, color) {
+    return ball.color === color || (state.powerupType === 'rainbow' && ball.powerup);
+  }
+
   function resolveMatches(startIdx) {
     let idx = startIdx, changed = true;
     while (changed) {
@@ -695,8 +684,8 @@
       if (idx < 0 || idx >= state.chain.length) break;
       const color = state.chain[idx].color;
       let lo = idx, hi = idx;
-      while (lo - 1 >= 0 && state.chain[lo - 1].color === color) lo--;
-      while (hi + 1 < state.chain.length && state.chain[hi + 1].color === color) hi++;
+      while (lo - 1 >= 0 && matchesColor(state.chain[lo - 1], color)) lo--;
+      while (hi + 1 < state.chain.length && matchesColor(state.chain[hi + 1], color)) hi++;
       if (hi - lo + 1 >= 3) {
         let hasPowerup = false;
         for (let i = lo; i <= hi; i++) {
@@ -705,10 +694,14 @@
           spawnBurst(p.x, p.y, b.color);
           if (b.powerup) hasPowerup = true;
         }
-        state.score += (hi - lo + 1) * 15;
-        state.chain.splice(lo, hi - lo + 1);
+        const removedCount = hi - lo + 1;
+        state.score += removedCount * 15;
+        state.chain.splice(lo, removedCount);
+        state.clearedCount += removedCount;
+        updateTier();
         updateHUD();
         if (hasPowerup) activatePowerup(lo);
+        ensureChainSupply();
         if (state.chain.length === 0) { changed = false; }
         else { idx = Math.min(lo, state.chain.length - 1); changed = true; }
       }
@@ -721,6 +714,12 @@
       spawnFloatingText(cx, cy - BALL_R * 3, '減速!', '#3f6fb0');
       return;
     }
+    if (state.powerupType === 'rainbow') {
+      state.score += 30;
+      updateHUD();
+      spawnFloatingText(cx, cy - BALL_R * 3, '百搭連線!', '#a56bd6');
+      return;
+    }
     const radius = 2;
     const from = Math.max(0, atIdx - radius);
     const to = Math.min(state.chain.length - 1, atIdx + radius - 1);
@@ -730,8 +729,11 @@
         const p = pointAt(Math.max(0, b.traveled));
         spawnBurst(p.x, p.y, b.color);
       }
-      state.score += (to - from + 1) * 20;
-      state.chain.splice(from, to - from + 1);
+      const removedCount = to - from + 1;
+      state.score += removedCount * 20;
+      state.chain.splice(from, removedCount);
+      state.clearedCount += removedCount;
+      updateTier();
       updateHUD();
     }
     spawnFloatingText(cx, cy - BALL_R * 3, '爆炸!', '#c9572f');
@@ -765,23 +767,24 @@
   function update(dt) {
     updateParticles(dt);
     if (state.status !== 'playing') return;
+    ensureChainSupply();
     if (state.chain.length) {
-      let speed = 30 + Math.min(30, state.score * 0.015);
+      let speed = BASE_SPEED + state.tier * SPEED_PER_TIER;
       if (state.slowTimer > 0) {
         speed *= 0.4;
         state.slowTimer -= dt;
       }
       // If clearing shells mid-chain left an open gap, freeze the front group in
       // place until the trailing group catches up and closes it — otherwise the
-      // front keeps creeping toward the hole as if nothing happened.
+      // front keeps creeping toward the hole as if nothing happened. The trailing
+      // group closes the gap at the SAME pace as normal play, no extra boost.
       let hasGap = false;
       for (let i = 1; i < state.chain.length; i++) {
         const maxT = state.chain[i - 1].traveled - SPACING;
         if (maxT - state.chain[i].traveled > 2) { hasGap = true; break; }
       }
       if (!hasGap) { state.chain[0].traveled += speed * dt; }
-      const followSpeed = speed * 2.2;
-      const maxStep = followSpeed * dt;
+      const maxStep = speed * dt;
       for (let i = 1; i < state.chain.length; i++) {
         const maxT = state.chain[i - 1].traveled - SPACING;
         const diff = maxT - state.chain[i].traveled;
@@ -789,8 +792,6 @@
         else state.chain[i].traveled += Math.sign(diff) * maxStep;
       }
       if (state.chain[0].traveled >= pathLength) { triggerLose(); return; }
-    } else {
-      triggerWin(); return;
     }
     for (let i = state.shots.length - 1; i >= 0; i--) {
       const s = state.shots[i];
@@ -847,7 +848,9 @@
         ctx.globalAlpha = pulse;
         ctx.beginPath();
         ctx.arc(p.x, p.y, BALL_R * 1.3, 0, Math.PI * 2);
-        ctx.strokeStyle = state.powerupType === 'slow' ? '#5b9bd6' : '#ff7a45';
+        ctx.strokeStyle = state.powerupType === 'slow' ? '#5b9bd6'
+          : state.powerupType === 'bomb' ? '#ff7a45'
+          : 'hsl(' + ((performance.now() / 8) % 360) + ',75%,60%)';
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.restore();
@@ -922,7 +925,6 @@
 
   document.getElementById('zw-start-btn').addEventListener('click', beginGame);
   document.getElementById('zw-name-input').addEventListener('keydown', e => { if (e.key === 'Enter') beginGame(); });
-  document.getElementById('zw-win-btn').addEventListener('click', initGame);
   document.getElementById('zw-lose-btn').addEventListener('click', initGame);
   document.getElementById('zw-pause-btn').addEventListener('click', togglePause);
   document.getElementById('zw-resume-btn').addEventListener('click', togglePause);
@@ -937,7 +939,7 @@
     if (e.target.id === 'zw-lb-modal') document.getElementById('zw-lb-modal').classList.remove('show');
   });
 
-  ['win', 'lose'].forEach(prefix => {
+  ['lose'].forEach(prefix => {
     document.getElementById('zw-' + prefix + '-save-btn').addEventListener('click', () => {
       submitRecord(prefix, document.getElementById('zw-' + prefix + '-comment').value);
       document.getElementById('zw-' + prefix + '-save-btn').disabled = true;
