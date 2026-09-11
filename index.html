@@ -288,6 +288,7 @@
   <ul class="zw-devlog-list">
     <li><b>9/10</b> 開發上線</li>
     <li><b>9/11</b> 版本更新為無限模式</li>
+    <li><b>9/11 下午兩點</b> 版更</li>
   </ul>
 </div>
 
@@ -349,6 +350,7 @@
   canvas.width = 640 * DPR;
   canvas.height = 640 * DPR;
   ctx.scale(DPR, DPR);
+  const hasConicGradient = typeof ctx.createConicGradient === 'function';
   canvas.addEventListener('dragstart', e => e.preventDefault());
 
   const cx = 320, cy = 320, R_OUT = 284, R_IN = 54, TURNS = 2.25;
@@ -460,6 +462,50 @@
     g.beginPath(); g.arc(0, 0, r, 0.35, Math.PI * 2 - 0.35); g.lineTo(0, 0); g.closePath();
     g.fillStyle = '#bfe6b0'; g.fill(); g.strokeStyle = '#9fd18c'; g.lineWidth = 1.5; g.stroke();
     g.restore();
+  }
+
+  // A small, unmistakable glyph per power-up type, drawn on top of a shell —
+  // the color-coded ring alone was too subtle to read as "this is a bomb" vs
+  // "this is a shield" at a glance.
+  function drawPowerupIcon(type, x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    const s = r * 0.52;
+    if (type === 'slow') {
+      ctx.fillStyle = '#5b9bd6'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s * 0.62); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s * 0.42, s * 0.18); ctx.stroke();
+    } else if (type === 'bomb') {
+      ctx.fillStyle = '#2b2b2b';
+      ctx.beginPath(); ctx.arc(0, s * 0.12, s * 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ff7a45'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, -s * 0.6); ctx.lineTo(s * 0.32, -s * 1.02); ctx.stroke();
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath(); ctx.arc(s * 0.36, -s * 1.05, s * 0.2, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'rainbow') {
+      const cols = ['#ff6b6b', '#ffb347', '#ffe066', '#7bd6a0', '#5b9bd6', '#a56bd6'];
+      for (let i = 0; i < cols.length; i++) {
+        ctx.strokeStyle = cols[i]; ctx.lineWidth = s * 0.24; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, s * 0.35, s * 0.85 - i * (s * 0.15), Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      }
+    } else if (type === 'freeze') {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      for (let a = 0; a < 6; a++) {
+        const ang = a * Math.PI / 3;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(ang) * s, Math.sin(ang) * s); ctx.stroke();
+      }
+      ctx.fillStyle = '#7ec8e3';
+      ctx.beginPath(); ctx.arc(0, 0, s * 0.22, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'shield') {
+      ctx.fillStyle = '#f0c419'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(0, -s); ctx.lineTo(s * 0.8, -s * 0.42); ctx.lineTo(s * 0.8, s * 0.32);
+      ctx.lineTo(0, s); ctx.lineTo(-s * 0.8, s * 0.32); ctx.lineTo(-s * 0.8, -s * 0.42);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // The pond background (gradient + lily pads + the 900-point spiral track) never
@@ -1000,6 +1046,21 @@
       const spr = sprites[b.color];
       ctx.drawImage(spr, p.x - spr.width / 2, p.y - spr.height / 2);
       if (b.powerup) {
+        // A rainbow power-up shell is tinted with a rotating rainbow gradient
+        // (masked to the shell's own silhouette via source-atop) so the shell
+        // itself reads as "rainbow", not just a normal-colored shell with a
+        // ring around it.
+        if (state.powerupType === 'rainbow' && hasConicGradient) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.globalAlpha = 0.8;
+          const grad = ctx.createConicGradient(performance.now() / 500, 0, 0);
+          ['#ff6b6b', '#ffb347', '#ffe066', '#7bd6a0', '#5b9bd6', '#a56bd6', '#ff6b6b'].forEach((c, i, arr) => grad.addColorStop(i / (arr.length - 1), c));
+          ctx.fillStyle = grad;
+          ctx.fillRect(-spr.width / 2, -spr.height / 2, spr.width, spr.height);
+          ctx.restore();
+        }
         const pulse = 0.55 + 0.35 * Math.sin(performance.now() / 180);
         ctx.save();
         ctx.globalAlpha = pulse;
@@ -1013,6 +1074,7 @@
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.restore();
+        drawPowerupIcon(state.powerupType, p.x, p.y - BALL_R * 1.55, BALL_R * 0.62);
       }
     }
     state.shots.forEach(s => {
@@ -1069,10 +1131,16 @@
   canvas.addEventListener('pointermove', e => {
     state.aimAngle = angleFromEvent(e).angle;
   });
-  canvas.addEventListener('pointerup', () => {
+  // Mobile browsers sometimes send pointercancel instead of pointerup even for
+  // an ordinary finger lift (the gesture recognizer briefly suspecting a
+  // scroll, even with touch-action:none) — treat it the same as pointerup
+  // rather than silently dropping the shot, since from the player's side
+  // they still just lifted their finger to fire.
+  function endPress() {
     if (state.pressed) { state.pressed = false; fireShot(); }
-  });
-  canvas.addEventListener('pointercancel', () => { state.pressed = false; });
+  }
+  canvas.addEventListener('pointerup', endPress);
+  canvas.addEventListener('pointercancel', endPress);
 
   function beginGame() {
     const input = document.getElementById('zw-name-input');
